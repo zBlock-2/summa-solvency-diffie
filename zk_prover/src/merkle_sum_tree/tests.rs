@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod test {
 
+    use crate::chips::merkle_sum_tree;
     use crate::merkle_sum_tree::utils::big_uint_to_fp;
-    use crate::merkle_sum_tree::{Entry, MerkleSumTree, Node, Tree};
+    use crate::merkle_sum_tree::{Cryptocurrency, Entry, MerkleSumTree, Node, Tree};
+    use halo2_gadgets::sinsemilla::merkle;
     use num_bigint::{BigUint, ToBigUint};
     use rand::Rng as _;
 
@@ -108,6 +110,20 @@ mod test {
     }
 
     #[test]
+    fn test_update_invalid_mst_leaf_2() {
+        let mut merkle_tree = create_mst_from_params();
+
+        let new_root = merkle_tree.update_leaf(
+            "non_existing_user", //This username is not present in the tree
+            &[11888.to_biguint().unwrap(), 41163.to_biguint().unwrap()],
+        );
+
+        if let Err(e) = new_root {
+            assert_eq!(e.to_string(), "Username not found");
+        }
+    }
+
+    #[test]
     fn test_sorted_mst() {
         let merkle_tree =
             MerkleSumTree::<N_CURRENCIES, N_BYTES>::from_csv("../csv/entry_16.csv").unwrap();
@@ -147,6 +163,32 @@ mod test {
 
         let fp_3 = fp_2 - fp;
         assert_eq!(fp_3, 18446744073709551613.into());
+    }
+
+    #[test]
+    fn get_middle_node() {
+        let merkle_tree =
+            MerkleSumTree::<N_CURRENCIES, N_BYTES>::from_csv("../csv/entry_16.csv").unwrap();
+
+        let depth = *merkle_tree.depth();
+
+        // The tree has 16 leaves, so the levels are 0, 1, 2, 3, 4. Where level 0 is the leaves and level 4 is the root
+        // Fetch a random level from 1 to depth
+        let mut rng = rand::thread_rng();
+        let level = rng.gen_range(1..depth);
+
+        // Fetch a random index inside the level. For example level 1 has 8 nodes, so the index can be 0, 1, 2, 3, 4, 5, 6, 7
+        let index = rng.gen_range(0..merkle_tree.nodes()[level].len());
+
+        // Fetch middle node with index from level
+        let middle_node = merkle_tree.nodes()[level][index].clone();
+
+        let left_child = merkle_tree.nodes()[level - 1][2 * index].clone();
+        let right_child = merkle_tree.nodes()[level - 1][2 * index + 1].clone();
+
+        let computed_node = Node::<N_CURRENCIES>::middle(&left_child, &right_child);
+
+        assert_eq!(middle_node, computed_node);
     }
 
     #[test]
@@ -261,5 +303,96 @@ mod test {
 
         // shouldn't create a proof for an entry that doesn't exist in the tree
         assert!(merkle_tree.generate_proof(32).is_err());
+    }
+
+    #[test]
+    fn test_get_node_preimage_with_invalid_level() {
+        let merkle_tree =
+            MerkleSumTree::<N_CURRENCIES, N_BYTES>::from_csv("../csv/entry_16.csv").unwrap();
+
+        let hash_preimage = merkle_tree.get_middle_node_hash_preimage(merkle_tree.depth() + 1, 2);
+
+        // should be an error because level is too high
+        assert!(hash_preimage.is_err());
+    }
+
+    #[test]
+    fn test_get_node_preimage_with_invalid_index() {
+        let merkle_tree =
+            MerkleSumTree::<N_CURRENCIES, N_BYTES>::from_csv("../csv/entry_16.csv").unwrap();
+
+        let hash_preimage = merkle_tree.get_middle_node_hash_preimage(merkle_tree.depth() - 1, 3);
+
+        // should be an error because index is too high
+        assert!(hash_preimage.is_err());
+    }
+
+    #[test]
+    fn test_get_cryptocurrencies() {
+        let merkle_tree =
+            MerkleSumTree::<N_CURRENCIES, N_BYTES>::from_csv("../csv/entry_16.csv").unwrap();
+
+        let cryptocurrencies = merkle_tree.cryptocurrencies();
+
+        assert_eq!(cryptocurrencies.len(), 2);
+        assert_eq!(cryptocurrencies[0].name, "ETH");
+        assert_eq!(cryptocurrencies[0].chain, "ETH");
+        assert_eq!(cryptocurrencies[1].name, "USDT");
+        assert_eq!(cryptocurrencies[1].chain, "ETH");
+    }
+
+    #[test]
+    fn test_create_mst_from_params() {
+        let merkle_tree = create_mst_from_params();
+
+        assert_eq!(merkle_tree.nodes().len(), 1);
+        assert_eq!(merkle_tree.nodes()[0].len(), 2);
+        assert_eq!(merkle_tree.entries().len(), 2);
+        assert_eq!(merkle_tree.depth(), &2usize);
+    }
+
+    fn create_mst_from_params() -> MerkleSumTree<N_CURRENCIES, N_BYTES> {
+        let entries = vec![
+            Entry::new(
+                "AtwIxZHo".to_string(),
+                [
+                    10000000.to_biguint().unwrap(),
+                    200000000.to_biguint().unwrap(),
+                ],
+            )
+            .unwrap(),
+            Entry::new(
+                "RkLzkDun".to_string(),
+                [
+                    10000000.to_biguint().unwrap(),
+                    300000000.to_biguint().unwrap(),
+                ],
+            )
+            .unwrap(),
+        ];
+
+        let nodes = vec![vec![entries[0].compute_leaf(), entries[1].compute_leaf()]];
+        let root = Node::<N_CURRENCIES>::middle(&nodes[0][0], &nodes[0][1]);
+
+        let cryptocurrencies = vec![
+            Cryptocurrency {
+                name: "ETH".to_string(),
+                chain: "ETH".to_string(),
+            },
+            Cryptocurrency {
+                name: "USDT".to_string(),
+                chain: "ETH".to_string(),
+            },
+        ];
+
+        MerkleSumTree::<N_CURRENCIES, N_BYTES>::from_params(
+            root,
+            nodes,
+            2,
+            entries,
+            cryptocurrencies,
+            false,
+        )
+        .unwrap()
     }
 }
