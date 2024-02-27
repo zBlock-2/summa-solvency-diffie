@@ -101,13 +101,13 @@ self.expose_public(
 
 In this code base, what poseidon entry chip compute `Poseiodn(username, balance[0], balance[1], ..., balance[N_ASSETS - 1])` and expose the result as public input ( Instance column ).
 
-| Instance(output)          | advice_a       | advice_b                                       | advice_c | fixed_a | fixed_b | fixed_c | fixed_d | fixed_e | bool_and_swap_selector | sum_selector | lookup_selector |
-| ------------------------- | -------------- | ---------------------------------------------- | -------- | ------- | ------- | ------- | ------- | ------- | ---------------------- | ------------ | --------------- |
-| -                         | entry username | entry_balance (currency 0)                     | -        | ------- | ------- | ------- | ------- | ------- | ---------------------- | ------------ | --------------- |
-| -                         | \_             | entry_balance (currency 1)                     | -        | ------- | ------- | ------- | ------- | ------- | ---------------------- | ------------ | --------------- |
-| -                         | \_             | ... base on currency types, it will keep stack | -        | ------- | ------- | ------- | ------- | ------- | ---------------------- | ------------ | --------------- |
-| -                         | \_             | entry_balance (currency N - 1)                 | -        | ------- | ------- | ------- | ------- | ------- | ---------------------- | ------------ | --------------- |
-| poseidon hash (leaf hash) | -              | -                                              | -        | ------- | ------- | ------- | ------- | ------- | ---------------------- | ------------ | --------------- |
+| Instance(output)          | advice_a       | advice_b                                       |
+| ------------------------- | -------------- | ---------------------------------------------- |
+| -                         | entry username | entry_balance (currency 0)                     |
+| -                         | \_             | entry_balance (currency 1)                     |
+| -                         | \_             | ... base on currency types, it will keep stack |
+| -                         | \_             | entry_balance (currency N - 1)                 |
+| poseidon hash (leaf hash) | -              | -                                              |
 
 2.  **sibling leaf hash**: While looping merkle sum tree each level.
 
