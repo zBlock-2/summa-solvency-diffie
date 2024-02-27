@@ -11,7 +11,6 @@ use halo2_proofs::halo2curves::bn256::Fr as Fp;
 use halo2_proofs::plonk::{
     Advice, Circuit, Column, ConstraintSystem, Error, Fixed, Instance, Selector,
 };
-
 /// Circuit for verifying inclusion of an entry (username, balances) inside a merkle sum tree with a given root.
 ///
 /// # Type Parameters
